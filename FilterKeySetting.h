@@ -5,28 +5,27 @@
 #pragma once
 
 #ifndef __AFXWIN_H__
-	#error "include 'pch.h' before including this file for PCH"
+  #error "include 'pch.h' before including this file for PCH"
 #endif
 
-#include "resource.h"		// main symbols
-
+#include "resource.h"  // main symbols
 
 // CFilterKeySettingApp:
 // See FilterKeySetting.cpp for the implementation of this class
 //
 
-class CFilterKeySettingApp : public CWinApp
-{
-public:
-	CFilterKeySettingApp();
+class CFilterKeySettingApp : public CWinApp {
+ public:
+  CFilterKeySettingApp();
 
-// Overrides
-public:
-	virtual BOOL InitInstance();
+  // Overrides
+ public:
+  virtual BOOL InitInstance();
+  virtual int  ExitInstance();
 
-// Implementation
+  // Implementation
 
-	DECLARE_MESSAGE_MAP()
+  DECLARE_MESSAGE_MAP()
 };
 
 extern CFilterKeySettingApp theApp;

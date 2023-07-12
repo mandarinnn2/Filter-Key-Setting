@@ -2,164 +2,106 @@
 // FilterKeySettingDlg.cpp : implementation file
 //
 
+// clang-format off
 #include "pch.h"
 #include "framework.h"
 #include "FilterKeySetting.h"
 #include "FilterKeySettingDlg.h"
 #include "afxdialogex.h"
 
+#include "DialogRename.h"
+// clang-format on
+
 #ifdef _DEBUG
-#define new DEBUG_NEW
+  #define new DEBUG_NEW
 #endif
 
 #define _CRT_SECURE_NO_WARNINGS
-#pragma warning (disable: 4996)
+#pragma warning(disable : 4996)
 
 // CFilterKeySettingDlg dialog
 
-
-static LONG GetDWORDRegKey(HKEY hKey, const WCHAR* strValueName, DWORD& nValue, DWORD nDefaultValue)
-{
-	nValue = nDefaultValue;
-	DWORD dwBufferSize(sizeof(DWORD));
-	DWORD nResult(0);
-	LONG nError = ::RegQueryValueExW(hKey, strValueName, 0, NULL, (LPBYTE)&nResult, &dwBufferSize);
-	if (ERROR_SUCCESS == nError) {
-		nValue = nResult;
-	}
-	return nError;
-}
-
-static LONG GetBoolRegKey(HKEY hKey, const WCHAR* strValueName, bool& bValue, bool bDefaultValue)
-{
-	DWORD nDefValue((bDefaultValue) ? 1 : 0);
-	DWORD nResult(nDefValue);
-	LONG nError = GetDWORDRegKey(hKey, strValueName, nResult, nDefValue);
-	if (ERROR_SUCCESS == nError) {
-		bValue = (nResult != 0) ? true : false;
-	}
-	return nError;
-}
-
-static LONG GetStringRegKey(HKEY hKey, const WCHAR* strValueName, WCHAR* szValue, DWORD cbValue, const WCHAR* strDefaultValue)
-{
-	wcsncpy(szValue, strDefaultValue, cbValue / sizeof(wchar_t));
-	DWORD dwBufferSize = cbValue;
-	ULONG nError = ::RegQueryValueExW(hKey, strValueName, 0, NULL, (LPBYTE)szValue, &dwBufferSize);
-	if (ERROR_SUCCESS != nError) {
-		wcsncpy(szValue, strDefaultValue, cbValue / sizeof(wchar_t));
-	}
-	return nError;
-}
-
-static LONG GetNumericStringRegKey(HKEY hKey, const WCHAR* strValueName, INT& nValue, INT nDefaultValue)
-{
-	nValue = nDefaultValue;
-	WCHAR szBuffer[512];
-	DWORD dwBufferSize = sizeof(szBuffer);
-	LONG nError = GetStringRegKey(hKey, strValueName, szBuffer, sizeof(szBuffer), L"");
-	if (ERROR_SUCCESS == nError) {
-		nValue = _wtoi(szBuffer);
-	}
-	return nError;
-}
-
-static LONG GetNumericStringRegKey(HKEY hKey, const WCHAR* strValueName, DWORD& nValue, DWORD nDefaultValue)
-{
-	INT iValue;
-	INT iDefaultValue = (INT)nDefaultValue;
-	LONG nError = GetNumericStringRegKey(hKey, strValueName, iValue, iDefaultValue);
-	nValue = iValue;
-	return nError;
-}
-
-
 CFilterKeySettingDlg::CFilterKeySettingDlg(CWnd* pParent /*=nullptr*/)
-	: CDialogEx(IDD_FILTERKEYSETTING_DIALOG, pParent)
-	, m_bUpdateIniFile(TRUE)
-	, m_bSendChange(FALSE)
-	, m_nLastBtn(eCus_1)
+    : CDialogEx(IDD_FILTERKEYSETTING_DIALOG, pParent)
 {
-	m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+  m_hIcon = AfxGetApp()->LoadIcon(IDR_MAINFRAME);
+
+  global_config_ = new FilterKey::Container(USER_REGISTRY_PATH);
+}
+
+CFilterKeySettingDlg::~CFilterKeySettingDlg()
+{
+  SAFE_DELETE(global_config_);
+  SAFE_DELETE(preset_);
 }
 
 void CFilterKeySettingDlg::DoDataExchange(CDataExchange* pDX)
 {
-	DDX_Text(pDX, IDC_WAIT_EDIT, m_nWait);
-	//DDV_MinMaxInt(pDX, m_nWait, 0, 20000);
-	DDX_Text(pDX, IDC_DELAY_EDIT, m_nDelay);
-	//DDV_MinMaxInt(pDX, m_nDelay, 0, 20000);
-	DDX_Text(pDX, IDC_REPEAT_EDIT, m_nRepeat);
-	//DDV_MinMaxInt(pDX, m_nRepeat, 0, 20000);
-
-	DDX_Check(pDX, IDC_ON, m_bOn);
-	DDX_Check(pDX, IDC_AVAILABLE, m_bAvailable);
-	DDX_Check(pDX, IDC_HOTKEYACTIVE, m_bHotKeyActive);
-	DDX_Check(pDX, IDC_CONFIRMHOTKEY, m_bConfirmHotKey);
-	DDX_Check(pDX, IDC_HOTKEYSOUND, m_bHotKeySound);
-	DDX_Check(pDX, IDC_INDICATOR, m_bIndicator);
-	DDX_Check(pDX, IDC_CLICK, m_bClick);
-
-	DDX_Control(pDX, IDC_WAIT_EDIT, m_editWait);
-	DDX_Control(pDX, IDC_DELAY_EDIT, m_editDelay);
-	DDX_Control(pDX, IDC_REPEAT_EDIT, m_editRepeat);
-
-	DDX_Control(pDX, IDC_FLAGVAL, m_staticFlagVal);
-	DDX_Control(pDX, IDC_CHARS_PER_SEC, m_staticCharsPerSec);
-
-	CDialogEx::DoDataExchange(pDX);
+  CDialogEx::DoDataExchange(pDX);
 }
 
 BEGIN_MESSAGE_MAP(CFilterKeySettingDlg, CDialogEx)
-	ON_WM_PAINT()
-	ON_WM_QUERYDRAGICON()
+ON_WM_PAINT()
+ON_WM_QUERYDRAGICON()
 
-	ON_BN_CLICKED(IDC_ON, OnBnClickedFlag)
-	ON_BN_CLICKED(IDC_AVAILABLE, OnBnClickedFlag)
-	ON_BN_CLICKED(IDC_INDICATOR, OnBnClickedFlag)
-	ON_BN_CLICKED(IDC_CLICK, OnBnClickedFlag)
-	ON_BN_CLICKED(IDC_HOTKEYACTIVE, OnBnClickedFlag)
-	ON_BN_CLICKED(IDC_CONFIRMHOTKEY, OnBnClickedFlag)
-	ON_BN_CLICKED(IDC_HOTKEYSOUND, OnBnClickedFlag)
+ON_BN_CLICKED(IDC_BTN_PRESET_OFF, OnBnClickedPresetOff)
+ON_BN_CLICKED(IDC_BTN_PRESET1, OnBnClickedPreset1)
+ON_BN_CLICKED(IDC_BTN_PRESET2, OnBnClickedPreset2)
+ON_BN_CLICKED(IDC_BTN_APPLY, OnBnClickedApply)
 
-	ON_EN_CHANGE(IDC_REPEAT_EDIT, OnEnChangeRepeatEdit)
+ON_EN_SETFOCUS(IDC_EDIT_TESTING, &CFilterKeySettingDlg::OnEnSetFocusTesting)
+ON_EN_KILLFOCUS(IDC_EDIT_TESTING, &CFilterKeySettingDlg::OnEnKillFocusTesting)
 
-	ON_BN_CLICKED(IDC_APPLY, &CFilterKeySettingDlg::OnBnClickedApply)
-	ON_BN_CLICKED(IDC_SET_BTN_CUS1, &CFilterKeySettingDlg::OnBnClickedSetBtnCustom1)
-	ON_BN_CLICKED(IDC_SET_BTN_CUS2, &CFilterKeySettingDlg::OnBnClickedSetBtnCustom2)
-	ON_BN_CLICKED(IDC_SET_BTN_CUS3, &CFilterKeySettingDlg::OnBnClickedSetBtnCustom3)
-	ON_BN_CLICKED(IDC_SET_BTN_CUS4, &CFilterKeySettingDlg::OnBnClickedSetBtnCustom4)
-	ON_BN_CLICKED(IDC_SET_BTN_CUS5, &CFilterKeySettingDlg::OnBnClickedSetBtnCustom5)
-	ON_BN_CLICKED(IDC_BTN_TITLE_UPDATE, &CFilterKeySettingDlg::OnBnClickedBtnTitleUpdate)
+ON_BN_CLICKED(IDC_CHECK_FAST_APPLY,
+              &CFilterKeySettingDlg::OnBnClickedCheckFastApply)
+ON_BN_CLICKED(IDC_CHECK_RESTORE_SETTING,
+              &CFilterKeySettingDlg::OnBnClickedCheckRestoreSetting)
 END_MESSAGE_MAP()
-
 
 // CFilterKeySettingDlg message handlers
 
 BOOL CFilterKeySettingDlg::OnInitDialog()
 {
-	CDialogEx::OnInitDialog();
+  CDialogEx::OnInitDialog();
 
-	// Set the icon for this dialog.  The framework does this automatically
-	//  when the application's main window is not a dialog
-	SetIcon(m_hIcon, TRUE);			// Set big icon
-	SetIcon(m_hIcon, FALSE);		// Set small icon
+  // Set the icon for this dialog.  The framework does this automatically
+  //  when the application's main window is not a dialog
+  SetIcon(m_hIcon, TRUE);   // Set big icon
+  SetIcon(m_hIcon, FALSE);  // Set small icon
 
-	for (int i = 0; i < eCustom_max; i++)
-	{
-		UpdateButton(i);
-	}
+  // Set Button UI
+  {
+    GetDlgItem(IDC_BTN_PRESET_OFF)->SetWindowText(_T("끄기"));
+  }
 
-	int last = theApp.GetProfileInt(SEC_CONFIG, DEF_BTN_LAST, eCus_1);
-	UpdateTitleWindow(last);
+  {
+    FilterKey::Container preset(FilterKey::PRESET::ONE);
+    auto                 title = preset.getString(KEY_PRESET_TITLE);
+    GetDlgItem(IDC_BTN_PRESET1)->SetWindowText(title);
+  }
 
-	FILTERKEYS filter_keys = { sizeof(FILTERKEYS) };
-	LoadCustomValue(last, &filter_keys);
-	SetValues(filter_keys);
+  {
+    FilterKey::Container preset(FilterKey::PRESET::TWO);
+    auto                 title = preset.getString(KEY_PRESET_TITLE);
+    GetDlgItem(IDC_BTN_PRESET2)->SetWindowText(title);
+  }
 
-	SetWindowText(_T("FilterKeySetting"));
+  // Set Global configure
+  auto last_preset = global_config_->getInteger(KEY_LAST_PRESET);
+  if (last_preset >= static_cast<int>(FilterKey::PRESET::ONE)) {
+    SAFE_DELETE(preset_)
+    preset_ =
+        new FilterKey::Container(static_cast<FilterKey::PRESET>(last_preset));
+  }
 
-	return TRUE;  // return TRUE  unless you set the focus to a control
+  // Set Default Preset
+  UpdateOption(FALSE);
+  UpdateInterface();
+
+  // Kill Focus Edit control
+  OnEnKillFocusTesting();
+
+  return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
 // If you add a minimize button to your dialog, you will need the code below
@@ -168,289 +110,330 @@ BOOL CFilterKeySettingDlg::OnInitDialog()
 
 void CFilterKeySettingDlg::OnPaint()
 {
-	if (IsIconic())
-	{
-		CPaintDC dc(this); // device context for painting
+  if (IsIconic()) {
+    CPaintDC dc(this);  // device context for painting
 
-		SendMessage(WM_ICONERASEBKGND, reinterpret_cast<WPARAM>(dc.GetSafeHdc()), 0);
+    SendMessage(WM_ICONERASEBKGND, reinterpret_cast<WPARAM>(dc.GetSafeHdc()),
+                0);
 
-		// Center icon in client rectangle
-		int cxIcon = GetSystemMetrics(SM_CXICON);
-		int cyIcon = GetSystemMetrics(SM_CYICON);
-		CRect rect;
-		GetClientRect(&rect);
-		int x = (rect.Width() - cxIcon + 1) / 2;
-		int y = (rect.Height() - cyIcon + 1) / 2;
+    // Center icon in client rectangle
+    int   cxIcon = GetSystemMetrics(SM_CXICON);
+    int   cyIcon = GetSystemMetrics(SM_CYICON);
+    CRect rect;
+    GetClientRect(&rect);
+    int x = (rect.Width() - cxIcon + 1) / 2;
+    int y = (rect.Height() - cyIcon + 1) / 2;
 
-		// Draw the icon
-		dc.DrawIcon(x, y, m_hIcon);
-	}
-	else
-	{
-		CDialogEx::OnPaint();
-	}
+    // Draw the icon
+    dc.DrawIcon(x, y, m_hIcon);
+  }
+  else {
+    CDialogEx::OnPaint();
+  }
 }
 
-// The system calls this function to obtain the cursor to display while the user drags
+// The system calls this function to obtain the cursor to display while the user
+// drags
 //  the minimized window.
 HCURSOR CFilterKeySettingDlg::OnQueryDragIcon()
 {
-	return static_cast<HCURSOR>(m_hIcon);
+  return static_cast<HCURSOR>(m_hIcon);
 }
 
-CString CFilterKeySettingDlg::GetButtonTitle(int idx)
+void CFilterKeySettingDlg::OnBnClickedPresetOff()
 {
-	CString strKey;
-	strKey.Format(DEF_BTN_TITLE, idx + 1);
+  SAFE_DELETE(preset_);
 
-	return theApp.GetProfileString(SEC_CONFIG, strKey, DEF_DEFAULT_TITLE[idx]);
+  if (press_ctrl_) {
+    // PopupRenameDialog();
+  }
+  else {
+    UpdateInterface();
+    ApplyFilterKey(fast_apply_ ? FALSE : TRUE);
+  }
 }
 
-void CFilterKeySettingDlg::SetButtonTitle(int idx, CString title)
+void CFilterKeySettingDlg::OnBnClickedPreset1()
 {
-	CString strKey;
-	strKey.Format(DEF_BTN_TITLE, idx + 1);
+  SAFE_DELETE(preset_);
+  preset_ = new FilterKey::Container(FilterKey::PRESET::ONE);
 
-	theApp.WriteProfileString(SEC_CONFIG, strKey, title);
-	SetDlgItemText(IDC_SET_BTN_CUS1 + idx, title);
+  if (press_ctrl_) {
+    PopupRenameDialog();
+  }
+  else {
+    UpdateInterface();
 
-	UpdateTitleWindow(idx);
+    if (fast_apply_) {
+      ApplyFilterKey(FALSE);
+    }
+  }
 }
 
-void CFilterKeySettingDlg::UpdateButton(int idx)
+void CFilterKeySettingDlg::OnBnClickedPreset2()
 {
-	GetDlgItem(IDC_SET_BTN_CUS1 + idx)->SetWindowText(GetButtonTitle(idx));
-}
+  SAFE_DELETE(preset_);
+  preset_ = new FilterKey::Container(FilterKey::PRESET::TWO);
 
-void CFilterKeySettingDlg::SaveCustomValue(int idx, FILTERKEYS& filter_keys)
-{
-	CString strKey;
+  if (press_ctrl_) {
+    PopupRenameDialog();
+  }
+  else {
+    UpdateInterface();
 
-	strKey.Format(DEF_VAL_WAITMSEC, idx + 1);
-	theApp.WriteProfileInt(SEC_CONFIG, strKey, filter_keys.iWaitMSec);
-
-	strKey.Format(DEF_VAL_DELAYMSEC, idx + 1);
-	theApp.WriteProfileInt(SEC_CONFIG, strKey, filter_keys.iDelayMSec);
-
-	strKey.Format(DEF_VAL_REPEATMSEC, idx + 1);
-	theApp.WriteProfileInt(SEC_CONFIG, strKey, filter_keys.iRepeatMSec);
-
-	strKey.Format(DEF_VAL_FLAGS, idx + 1);
-	theApp.WriteProfileInt(SEC_CONFIG, strKey, filter_keys.dwFlags);
-}
-
-void CFilterKeySettingDlg::LoadCustomValue(int idx, FILTERKEYS* filter_keys)
-{
-	CString strKey;
-
-	strKey.Format(DEF_VAL_WAITMSEC, idx + 1);
-	filter_keys->iWaitMSec		= theApp.GetProfileInt(SEC_CONFIG, strKey, DEF_DEFAULT_VALUE[idx][eValue_WaitTime]);
-
-	strKey.Format(DEF_VAL_DELAYMSEC, idx + 1);
-	filter_keys->iDelayMSec		= theApp.GetProfileInt(SEC_CONFIG, strKey, DEF_DEFAULT_VALUE[idx][eValue_DelayTime]);
-
-	strKey.Format(DEF_VAL_REPEATMSEC, idx + 1);
-	filter_keys->iRepeatMSec	= theApp.GetProfileInt(SEC_CONFIG, strKey, DEF_DEFAULT_VALUE[idx][eValue_RepeatTime]);
-
-	strKey.Format(DEF_VAL_FLAGS, idx + 1);
-	filter_keys->dwFlags		= theApp.GetProfileInt(SEC_CONFIG, strKey, DEF_DEFAULT_VALUE[idx][eValue_Flag]);
-
-	filter_keys->iBounceMSec	= 0;
-}
-
-void CFilterKeySettingDlg::OnBnClickedFlag()
-{
-	UpdateControls();
-}
-
-void CFilterKeySettingDlg::OnEnChangeRepeatEdit()
-{
-	UpdateCharsPerSec();
+    if (fast_apply_) {
+      ApplyFilterKey(FALSE);
+    }
+  }
 }
 
 void CFilterKeySettingDlg::OnBnClickedApply()
 {
-	if (!UpdateData(TRUE)) {
-		return;
-	}
-
-	if (SaveSettings() == true)
-	{
-		AfxMessageBox(_T("Ok"));
-	}
-	else
-	{
-		AfxMessageBox(_T("Set fail"));
-	}
+  UpdateFilterKey();
+  ApplyFilterKey();
 }
 
-void CFilterKeySettingDlg::SetValues(const FILTERKEYS& filter_keys)
+void CFilterKeySettingDlg::OnBnClickedCheckFastApply()
 {
-	UpdateData(TRUE);
-	m_nWait = filter_keys.iWaitMSec;
-	m_nDelay = filter_keys.iDelayMSec;
-	m_nRepeat = filter_keys.iRepeatMSec;
-	m_nBounce = filter_keys.iBounceMSec;
-	SetFlags(filter_keys.dwFlags);
-	UpdateData(FALSE);
-	UpdateControls();
+  UpdateOption();  //
 }
 
-void CFilterKeySettingDlg::UpdateControls()
+void CFilterKeySettingDlg::OnBnClickedCheckRestoreSetting()
 {
-	UpdateData(TRUE);
-	UpdateFlagVal();
-	UpdateCharsPerSec();
+  UpdateOption();  //
 }
 
-void CFilterKeySettingDlg::UpdateCharsPerSec()
+void CFilterKeySettingDlg::OnEnSetFocusTesting()
 {
-	CString s;
-	GetDlgItemText(IDC_REPEAT_EDIT, s);
-	int val = atoi(s);
-	if (val) {
-		s.Format("(%.1f per second)", 1000.0 / val);
-	}
-	else {
-		s = "(0 per second)";
-	}
-	m_staticCharsPerSec.SetWindowText(s);
+  GetDlgItem(IDC_EDIT_TESTING)->SetWindowText("");
 }
 
-void CFilterKeySettingDlg::UpdateTitleWindow(int idx)
+void CFilterKeySettingDlg::OnEnKillFocusTesting()
 {
-	theApp.WriteProfileInt(SEC_CONFIG, DEF_BTN_LAST, idx);
-	SetDlgItemText(IDC_STATIC_TITLE, GetButtonTitle(idx));
-	m_nLastBtn = idx;
+  GetDlgItem(IDC_EDIT_TESTING)->SetWindowText(_T("설정 값 테스트 해보기"));
 }
 
-void CFilterKeySettingDlg::SetFlags(DWORD dwFlags)
+////////////////////////////////////////////////////////////////////
+void CFilterKeySettingDlg::PopupRenameDialog()
 {
-	m_bOn = !!(dwFlags & FKF_FILTERKEYSON);
-	m_bAvailable = !!(dwFlags & FKF_AVAILABLE);
-	m_bIndicator = !!(dwFlags & FKF_INDICATOR);
-	m_bClick = !!(dwFlags & FKF_CLICKON);
-	m_bHotKeyActive = !!(dwFlags & FKF_HOTKEYACTIVE);
-	m_bConfirmHotKey = !!(dwFlags & FKF_CONFIRMHOTKEY);
-	m_bHotKeySound = !!(dwFlags & FKF_HOTKEYSOUND);
+  DialogRename dlg(preset_->getString(KEY_PRESET_TITLE), this);
+
+  if (dlg.DoModal() == IDOK) {
+    // Update registry & caption
+
+    auto uid = IDC_BTN_PRESET1 + preset_->number() - 1;
+
+    preset_->set(KEY_PRESET_TITLE, dlg.new_name_);
+    GetDlgItem(uid)->SetWindowText(dlg.new_name_);
+  }
+  press_ctrl_ = false;
 }
 
-DWORD CFilterKeySettingDlg::GetFlagsVal()
+void CFilterKeySettingDlg::ApplyFilterKey(BOOL alert)
 {
-	DWORD dwFlags = 0;
-	if (m_bOn) dwFlags |= FKF_FILTERKEYSON;
-	if (m_bAvailable) dwFlags |= FKF_AVAILABLE;
-	if (m_bIndicator) dwFlags |= FKF_INDICATOR;
-	if (m_bClick) dwFlags |= FKF_CLICKON;
-	if (m_bHotKeyActive) dwFlags |= FKF_HOTKEYACTIVE;
-	if (m_bConfirmHotKey) dwFlags |= FKF_CONFIRMHOTKEY;
-	if (m_bHotKeySound) dwFlags |= FKF_HOTKEYSOUND;
-	return dwFlags;
+  int accept_delay = DEFAULT_ACCEPT_DELAY;
+  int repeat_delay = DEFAULT_REPEAT_DELAY;
+  int repeat_rate  = DEFAULT_REPEAT_RATE;
+  int filter_flag  = WINDOW_FILTER_FLAG;
+
+  if (preset_) {
+    accept_delay = preset_->getInteger(KEY_ACCEPT_DELAY);
+    repeat_delay = preset_->getInteger(KEY_REPEAT_DELAY);
+    repeat_rate  = preset_->getInteger(KEY_REPEAT_RATE);
+    filter_flag  = preset_->getInteger(KEY_FILTER_FLAG);
+  }
+
+  if (accept_delay > 20000) {
+    AfxMessageBox("Accept Delay 값 최대치는 20000입니다.");
+    GetDlgItem(IDC_EDIT_ACCEPT_DELAY)->SetFocus();
+    return;
+  }
+
+  if (repeat_delay > 20000) {
+    AfxMessageBox("Repeat Delay 값 최대치는 20000입니다.");
+    GetDlgItem(IDC_EDIT_REPEAT_DELAY)->SetFocus();
+    return;
+  }
+
+  if (repeat_rate > 20000) {
+    AfxMessageBox("Repeat Rate 값 최대치는 20000입니다.");
+    GetDlgItem(IDC_EDIT_REPEAT_RATE)->SetFocus();
+    return;
+  }
+
+  FILTERKEYS filter_keys  = { sizeof(FILTERKEYS) };
+  filter_keys.iWaitMSec   = accept_delay;
+  filter_keys.iDelayMSec  = repeat_delay;
+  filter_keys.iRepeatMSec = repeat_rate;
+  filter_keys.dwFlags     = filter_flag;
+
+  bool ok = SystemParametersInfo(SPI_SETFILTERKEYS, sizeof(FILTERKEYS),
+                                 &filter_keys, SPIF_UPDATEINIFILE);
+
+  if (ok) {
+    DWORD number = preset_ ? preset_->number() : 0;
+    global_config_->set(KEY_LAST_PRESET, number);
+  }
+
+  if (ok && alert) {
+    if (preset_) {
+      AfxMessageBox("필터키가 활성화 되었습니다");
+    }
+    else {
+      AfxMessageBox("필터키가 비활성화 되었습니다");
+    }
+  }
+
+  if (!ok && alert) {
+    AfxMessageBox("필터키를 설정할 수 없습니다\r\n관리자 권한으로 실행하세요.");
+  }
 }
 
-void CFilterKeySettingDlg::UpdateFlagVal()
+void CFilterKeySettingDlg::UpdateOption(BOOL write /* = TRUE*/)
 {
-	DWORD dwFlags = GetFlagsVal();
-	CString s; s.Format("(%u)", dwFlags);
-	m_staticFlagVal.SetWindowText(s);
+  ASSERT(global_config_);
+
+  CButton* btn = nullptr;
+
+  if (write) {
+    // Fast Apply
+    {
+      btn = reinterpret_cast<CButton*>(GetDlgItem(IDC_CHECK_FAST_APPLY));
+      auto checked = btn ? btn->GetCheck() : false;
+
+      global_config_->set(KEY_FAST_APPLY, static_cast<DWORD>(checked));
+      fast_apply_ = global_config_->getInteger(KEY_FAST_APPLY);
+    }
+
+    // Restore setting
+    {
+      btn = reinterpret_cast<CButton*>(GetDlgItem(IDC_CHECK_RESTORE_SETTING));
+      auto checked = btn ? btn->GetCheck() : false;
+      global_config_->set(KEY_RESTORE_SETTING, static_cast<DWORD>(checked));
+    }
+  }
+  else {
+    // Fast Apply
+    {
+      btn = reinterpret_cast<CButton*>(GetDlgItem(IDC_CHECK_FAST_APPLY));
+      fast_apply_ = global_config_->getInteger(KEY_FAST_APPLY);
+      btn->SetCheck(fast_apply_ ? BST_CHECKED : BST_UNCHECKED);
+    }
+
+    // Restore setting
+    {
+      btn = reinterpret_cast<CButton*>(GetDlgItem(IDC_CHECK_RESTORE_SETTING));
+      auto restore = global_config_->getInteger(KEY_RESTORE_SETTING);
+      btn->SetCheck(restore ? BST_CHECKED : BST_UNCHECKED);
+    }
+  }
 }
 
-bool CFilterKeySettingDlg::SaveSettings()
+void CFilterKeySettingDlg::UpdateInterface()
 {
-	if (m_nWait > 20000) {
-		AfxMessageBox("Ignore under value is too large.\nMaximum value is 20000.");
-		m_editWait.SetFocus();
-		return false;
-	}
-	if (m_nDelay > 20000) {
-		AfxMessageBox("Repeat delay value is too large.\nMaximum value is 20000.");
-		m_editDelay.SetFocus();
-		return false;
-	}
-	if (m_nRepeat > 20000) {
-		AfxMessageBox("Repeat rate value is too large.\nMaximum value is 20000.");
-		m_editRepeat.SetFocus();
-		return false;
-	}
+  if (preset_) {
+    // Set window title
+    CString window_title;
+    window_title.Format(_T("필터키 : %s"),
+                        preset_->getString(KEY_PRESET_TITLE));
+    SetWindowText(window_title);
 
+    CString value;
 
-	FILTERKEYS filter_keys = { sizeof(FILTERKEYS) };
-	filter_keys.iWaitMSec = m_nWait;
-	filter_keys.iDelayMSec = m_nDelay;
-	filter_keys.iRepeatMSec = m_nRepeat;
-	filter_keys.dwFlags = GetFlagsVal();
+    value.Format(_T("%d"), preset_->getInteger(KEY_ACCEPT_DELAY));
+    GetDlgItem(IDC_EDIT_ACCEPT_DELAY)->SetWindowText(value);
 
-	UINT fWinIni = 0;
-	if (m_bUpdateIniFile) fWinIni |= SPIF_UPDATEINIFILE;
-	if (m_bSendChange) fWinIni |= SPIF_SENDCHANGE;
-	bool ok = !!SystemParametersInfo(SPI_SETFILTERKEYS, sizeof(FILTERKEYS), &filter_keys, fWinIni);
-	if (!ok) {
-		AfxMessageBox("Failed to save new settings.");
-	}
+    value.Format(_T("%d"), preset_->getInteger(KEY_REPEAT_DELAY));
+    GetDlgItem(IDC_EDIT_REPEAT_DELAY)->SetWindowText(value);
 
-	SaveCustomValue(m_nLastBtn, filter_keys);
+    value.Format(_T("%d"), preset_->getInteger(KEY_REPEAT_RATE));
+    GetDlgItem(IDC_EDIT_REPEAT_RATE)->SetWindowText(value);
+  }
+  else {
+    // Set window title
+    SetWindowText(_T("필터키 : 끄기"));
+    /*GetDlgItem()*/
+  }
 
-	return ok;
+  GetDlgItem(IDC_EDIT_ACCEPT_DELAY)->EnableWindow(preset_ ? TRUE : FALSE);
+  GetDlgItem(IDC_EDIT_REPEAT_DELAY)->EnableWindow(preset_ ? TRUE : FALSE);
+  GetDlgItem(IDC_EDIT_REPEAT_RATE)->EnableWindow(preset_ ? TRUE : FALSE);
+  GetDlgItem(IDC_BTN_APPLY)->EnableWindow(preset_ ? TRUE : FALSE);
 }
 
-void CFilterKeySettingDlg::OnBnClickedSetBtnCustom1()
+void CFilterKeySettingDlg::UpdateFilterKey()
 {
-	UpdateTitleWindow(eCus_1);
-	FILTERKEYS filter_keys = { sizeof(FILTERKEYS) };
-	LoadCustomValue(eCus_1, &filter_keys);
-	SetValues(filter_keys);
-}
+  if (preset_ == nullptr) {
+    AfxMessageBox(_T("좌측 프리셋을 먼저 선택해주세요."));
+    return;
+  }
 
-void CFilterKeySettingDlg::OnBnClickedSetBtnCustom2()
-{
-	UpdateTitleWindow(eCus_2);
-	FILTERKEYS filter_keys = { sizeof(FILTERKEYS) };
-	LoadCustomValue(eCus_2, &filter_keys);
-	SetValues(filter_keys);
-}
+  // Update configure value to registry
+  DWORD value = 0;
 
-void CFilterKeySettingDlg::OnBnClickedSetBtnCustom3()
-{
-	UpdateTitleWindow(eCus_3);
-	FILTERKEYS filter_keys = { sizeof(FILTERKEYS) };
-	LoadCustomValue(eCus_3, &filter_keys);
-	SetValues(filter_keys);
-}
+  value = static_cast<DWORD>(GetDlgItemInt(IDC_EDIT_ACCEPT_DELAY));
+  preset_->set(KEY_ACCEPT_DELAY, value);
 
-void CFilterKeySettingDlg::OnBnClickedSetBtnCustom4()
-{
-	UpdateTitleWindow(eCus_4);
-	FILTERKEYS filter_keys = { sizeof(FILTERKEYS) };
-	LoadCustomValue(eCus_4, &filter_keys);
-	SetValues(filter_keys);
-}
+  value = static_cast<DWORD>(GetDlgItemInt(IDC_EDIT_REPEAT_DELAY));
+  preset_->set(KEY_REPEAT_DELAY, value);
 
-void CFilterKeySettingDlg::OnBnClickedSetBtnCustom5()
-{
-	UpdateTitleWindow(eCus_5);
-	FILTERKEYS filter_keys = { sizeof(FILTERKEYS) };
-	LoadCustomValue(eCus_5, &filter_keys);
-	SetValues(filter_keys);
-}
-
-void CFilterKeySettingDlg::OnBnClickedBtnTitleUpdate()
-{
-	CString strNewTitle;
-	GetDlgItemText(IDC_EDIT1, strNewTitle);
-
-	SetButtonTitle(m_nLastBtn, strNewTitle);
+  value = static_cast<DWORD>(GetDlgItemInt(IDC_EDIT_REPEAT_RATE));
+  preset_->set(KEY_REPEAT_RATE, value);
 }
 
 BOOL CFilterKeySettingDlg::PreTranslateMessage(MSG* pMsg)
 {
-	// TODO: 여기에 특수화된 코드를 추가 및/또는 기본 클래스를 호출합니다.
-	if (pMsg->message == WM_KEYDOWN)
-	{
-		if (pMsg->wParam == VK_RETURN || pMsg->wParam == VK_ESCAPE)
-		{
-			return TRUE;
-		}
-	}
+  if (pMsg->message == WM_KEYDOWN) {
+    // ESC, Enter 키 이벤트 제거
+    if (pMsg->wParam == VK_RETURN || pMsg->wParam == VK_ESCAPE) {
+      return TRUE;
+    }
 
-	return CDialogEx::PreTranslateMessage(pMsg);
+    // 이름 변경 다이얼로그 이벤트 목적
+    if (pMsg->wParam == VK_CONTROL) {
+      press_ctrl_ = true;
+      TRACE("ctrl pressing ...\n");
+    }
+  }
+  else if (pMsg->message == WM_KEYUP) {
+    if (pMsg->wParam == VK_CONTROL) {
+      press_ctrl_ = false;
+      TRACE("ctrl key up\n");
+    }
+  }
+
+  return CDialogEx::PreTranslateMessage(pMsg);
 }
+
+#if 0
+void CFilterKeySettingDlg::SetFlags(DWORD dwFlags)
+{
+  m_bOn            = !!(dwFlags & FKF_FILTERKEYSON);
+  m_bAvailable     = !!(dwFlags & FKF_AVAILABLE);
+  m_bIndicator     = !!(dwFlags & FKF_INDICATOR);
+  m_bClick         = !!(dwFlags & FKF_CLICKON);
+  m_bHotKeyActive  = !!(dwFlags & FKF_HOTKEYACTIVE);
+  m_bConfirmHotKey = !!(dwFlags & FKF_CONFIRMHOTKEY);
+  m_bHotKeySound   = !!(dwFlags & FKF_HOTKEYSOUND);
+}
+
+DWORD CFilterKeySettingDlg::GetFlagsVal()
+{
+  DWORD dwFlags = 0;
+  if (m_bOn)
+    dwFlags |= FKF_FILTERKEYSON;
+  if (m_bAvailable)
+    dwFlags |= FKF_AVAILABLE;
+  if (m_bIndicator)
+    dwFlags |= FKF_INDICATOR;
+  if (m_bClick)
+    dwFlags |= FKF_CLICKON;
+  if (m_bHotKeyActive)
+    dwFlags |= FKF_HOTKEYACTIVE;
+  if (m_bConfirmHotKey)
+    dwFlags |= FKF_CONFIRMHOTKEY;
+  if (m_bHotKeySound)
+    dwFlags |= FKF_HOTKEYSOUND;
+  return dwFlags;
+}
+#endif

@@ -1,5 +1,5 @@
 ﻿#pragma once
-
+// clang-format off
 #ifndef VC_EXTRALEAN
 #define VC_EXTRALEAN            // Exclude rarely-used stuff from Windows headers
 #endif
@@ -46,4 +46,4 @@
 #endif
 #endif
 
-
+// clang-format on
