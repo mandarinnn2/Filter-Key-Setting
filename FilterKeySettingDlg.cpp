@@ -101,6 +101,9 @@ BOOL CFilterKeySettingDlg::OnInitDialog()
   // Kill Focus Edit control
   OnEnKillFocusTesting();
 
+  OnBnClickedPreset1();
+  OnBnClickedApply(); 
+
   return TRUE;  // return TRUE  unless you set the focus to a control
 }
 
@@ -275,14 +278,6 @@ void CFilterKeySettingDlg::ApplyFilterKey(BOOL alert)
     global_config_->set(KEY_LAST_PRESET, number);
   }
 
-  if (ok && alert) {
-    if (preset_) {
-      AfxMessageBox("필터키가 활성화 되었습니다");
-    }
-    else {
-      AfxMessageBox("필터키가 비활성화 되었습니다");
-    }
-  }
 
   if (!ok && alert) {
     AfxMessageBox("필터키를 설정할 수 없습니다\r\n관리자 권한으로 실행하세요.");
