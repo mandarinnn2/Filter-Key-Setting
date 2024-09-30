@@ -8,6 +8,8 @@
 #include "FilterKeySetting.h"
 #include "FilterKeySettingDlg.h"
 #include "afxdialogex.h"
+#include <windows.h>
+#include <mmsystem.h>  // PlaySound 함수를 사용하기 위해 필요합니다
 
 #include "DialogRename.h"
 // clang-format on
@@ -18,8 +20,10 @@
 
 #define _CRT_SECURE_NO_WARNINGS
 #pragma warning(disable : 4996)
+#pragma comment(lib, "winmm.lib")  // mmsystem.lib 라이브러리 링크
 
 // CFilterKeySettingDlg dialog
+
 
 CFilterKeySettingDlg::CFilterKeySettingDlg(CWnd* pParent /*=nullptr*/)
     : CDialogEx(IDD_FILTERKEYSETTING_DIALOG, pParent)
@@ -59,13 +63,13 @@ ON_BN_CLICKED(IDC_CHECK_RESTORE_SETTING,
 END_MESSAGE_MAP()
 
 // CFilterKeySettingDlg message handlers
+#include <windows.h>  // PlaySound을 사용하기 위해 필요합니다
 
 BOOL CFilterKeySettingDlg::OnInitDialog()
 {
   CDialogEx::OnInitDialog();
 
-  // Set the icon for this dialog.  The framework does this automatically
-  //  when the application's main window is not a dialog
+  // Set the icon for this dialog.
   SetIcon(m_hIcon, TRUE);   // Set big icon
   SetIcon(m_hIcon, FALSE);  // Set small icon
 
@@ -101,11 +105,15 @@ BOOL CFilterKeySettingDlg::OnInitDialog()
   // Kill Focus Edit control
   OnEnKillFocusTesting();
 
-  OnBnClickedPreset1();
-  OnBnClickedApply(); 
+  // Play airplane.wav file
+  PlaySound(TEXT("airplane.wav"), NULL, SND_FILENAME | SND_ASYNC);
 
-  return TRUE;  // return TRUE  unless you set the focus to a control
+  OnBnClickedPreset1();
+  OnBnClickedApply();
+
+  return TRUE;  // return TRUE unless you set the focus to a control
 }
+
 
 // If you add a minimize button to your dialog, you will need the code below
 //  to draw the icon.  For MFC applications using the document/view model,
