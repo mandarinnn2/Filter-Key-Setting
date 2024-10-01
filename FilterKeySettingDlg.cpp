@@ -11,7 +11,10 @@
 #include <windows.h>
 #include <mmsystem.h>  // PlaySound 함수를 사용하기 위해 필요합니다
 
+
 #include "DialogRename.h"
+
+
 // clang-format on
 
 #ifdef _DEBUG
@@ -60,6 +63,7 @@ ON_BN_CLICKED(IDC_CHECK_FAST_APPLY,
               &CFilterKeySettingDlg::OnBnClickedCheckFastApply)
 ON_BN_CLICKED(IDC_CHECK_RESTORE_SETTING,
               &CFilterKeySettingDlg::OnBnClickedCheckRestoreSetting)
+ON_WM_CLOSE()  // 추가된 부분
 END_MESSAGE_MAP()
 
 // CFilterKeySettingDlg message handlers
@@ -407,6 +411,17 @@ BOOL CFilterKeySettingDlg::PreTranslateMessage(MSG* pMsg)
 
   return CDialogEx::PreTranslateMessage(pMsg);
 }
+
+void CFilterKeySettingDlg::OnClose()
+{
+  // Play airplane_2.wav file synchronously
+  PlaySound(TEXT("airplane_2.wav"), NULL, SND_FILENAME | SND_SYNC);
+
+  // After the sound has finished playing, exit the process
+  ExitProcess(0);  // 프로세스를 즉시 종료
+}
+
+
 
 #if 0
 void CFilterKeySettingDlg::SetFlags(DWORD dwFlags)

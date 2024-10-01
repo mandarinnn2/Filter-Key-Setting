@@ -222,6 +222,7 @@
   </ItemGroup>
   <ItemGroup>
     <Media Include="airplane.wav" />
+    <Media Include="airplane_2.wav" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

@@ -51,6 +51,8 @@ class CFilterKeySettingDlg : public CDialogEx {
 
   virtual BOOL PreTranslateMessage(MSG* pMsg);
 
+  void OnClose();
+
  private:
   FilterKey::Container* global_config_ = nullptr;
   FilterKey::Container* preset_        = nullptr;

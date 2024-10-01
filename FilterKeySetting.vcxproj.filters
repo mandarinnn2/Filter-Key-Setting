@@ -83,5 +83,8 @@
     <Media Include="airplane.wav">
       <Filter>리소스 파일</Filter>
     </Media>
+    <Media Include="airplane_2.wav">
+      <Filter>리소스 파일</Filter>
+    </Media>
   </ItemGroup>
 </Project>
