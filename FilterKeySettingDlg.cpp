@@ -414,6 +414,7 @@ BOOL CFilterKeySettingDlg::PreTranslateMessage(MSG* pMsg)
 
 void CFilterKeySettingDlg::OnClose()
 {
+  OnBnClickedPresetOff();
   // Play airplane_2.wav file synchronously
   PlaySound(TEXT("airplane_2.wav"), NULL, SND_FILENAME | SND_SYNC);
 
